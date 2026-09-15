@@ -1,0 +1,49 @@
+ubucrys@ublpc:~$ ls 
+Descargas   Escritorio  Música      Público  snap
+Documentos  Imágenes    Plantillas  Vídeos
+ubucrys@ublpc:~$ ls -l
+total 36
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep 15 09:38 Descargas
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep 14 20:39 Documentos
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep  8 03:26 Escritorio
+drwxr-xr-x 3 ubucrys ubucrys 4096 Sep 14 09:36 Imágenes
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep  8 03:26 Música
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep  8 03:26 Plantillas
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep  8 03:26 Público
+drwxr-xr-x 2 ubucrys ubucrys 4096 Sep  8 03:26 Vídeos
+drwx------ 8 ubucrys ubucrys 4096 Sep 14 20:53 snap
+ubucrys@ublpc:~$ ls -la
+total 76
+drwxr-x--- 15 ubucrys ubucrys 4096 Sep 14 20:38 .
+drwxr-xr-x  3 root    root    4096 Sep  8 03:23 ..
+-rw-------  1 ubucrys ubucrys  405 Sep 14 21:39 .bash_history
+-rw-r--r--  1 ubucrys ubucrys  220 Feb 13  2026 .bash_logout
+-rw-r--r--  1 ubucrys ubucrys 3771 Feb 13  2026 .bashrc
+drwx------ 16 ubucrys ubucrys 4096 Sep 14 09:52 .cache
+drwx------ 14 ubucrys ubucrys 4096 Sep  8 10:35 .config
+drwx------  4 ubucrys ubucrys 4096 Sep  8 03:26 .local
+-rw-r--r--  1 ubucrys ubucrys  807 Feb 13  2026 .profile
+drwx------  2 ubucrys ubucrys 4096 Sep  8 03:27 .ssh
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep 15 09:38 Descargas
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep 14 20:39 Documentos
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep  8 03:26 Escritorio
+drwxr-xr-x  3 ubucrys ubucrys 4096 Sep 14 09:36 Imágenes
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep  8 03:26 Música
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep  8 03:26 Plantillas
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep  8 03:26 Público
+drwxr-xr-x  2 ubucrys ubucrys 4096 Sep  8 03:26 Vídeos
+drwx------  8 ubucrys ubucrys 4096 Sep 14 20:53 snap
+ubucrys@ublpc:~$ ls -lh
+total 36K
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep 15 09:38 Descargas
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep 14 20:39 Documentos
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep  8 03:26 Escritorio
+drwxr-xr-x 3 ubucrys ubucrys 4.0K Sep 14 09:36 Imágenes
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep  8 03:26 Música
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep  8 03:26 Plantillas
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep  8 03:26 Público
+drwxr-xr-x 2 ubucrys ubucrys 4.0K Sep  8 03:26 Vídeos
+drwx------ 8 ubucrys ubucrys 4.0K Sep 14 20:53 snap
+ubucrys@ublpc:~$ cd Documentos
+ubucrys@ublpc:~/Documentos$ cd ..
+ubucrys@ublpc:~$ cd ~
