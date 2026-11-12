@@ -1,0 +1,224 @@
+==================================================================
+PRACTICA: COMPARTIR ARCHIVOS ENTRE UBUNTU Y WINDOWS (SAMBA)
+==================================================================
+Servidor : Ubuntu  (Samba)     IP de ejemplo 192.168.1.2
+Cliente  : Windows             IP de ejemplo 192.168.1.7
+Carpeta compartida: CompartidaWin (recurso: compartida)
+(Cambia las IP y el usuario por los de tu practica.)
+==================================================================
+
+
+------------------------------------------------------------------
+PARTE 1. PRUEBA DE CONECTIVIDAD
+------------------------------------------------------------------
+
+# En UBUNTU: ping al equipo Windows (-c 4 = 4 paquetes).
+ping -c 4 192.168.1.7
+
+# En WINDOWS (CMD): ping al servidor Ubuntu (-n 4 = 4 paquetes).
+ping -n 4 192.168.1.2
+
+# Nota: el firewall de Windows suele bloquear el ping entrante, asi que
+# puede fallar desde Ubuntu aunque SMB funcione. Por eso tambien se
+# comprueba el puerto 445 (ver Parte 3).
+# TTL esperado: 128 en respuestas de Windows, 64 en respuestas de Ubuntu.
+
+
+------------------------------------------------------------------
+PARTE 2. CONFIGURACION DEL SERVIDOR (UBUNTU)
+------------------------------------------------------------------
+
+# 1. Actualizar paquetes e instalar Samba (protocolo SMB para Linux).
+sudo apt update
+sudo apt install -y samba
+
+# 2. Crear la carpeta que se va a compartir.
+mkdir -p ~/Escritorio/CompartidaWin
+
+# 3. Copia de seguridad de la configuracion original.
+sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.bak
+
+# 4. Editar la configuracion de Samba.
+sudo nano /etc/samba/smb.conf
+
+#    Agregar este bloque al FINAL del archivo:
+#
+#    [compartida]                                       # nombre del recurso
+#       comment = Carpeta compartida de Ubuntu          # descripcion
+#       path = /home/ubucrys/Escritorio/CompartidaWin   # carpeta compartida
+#       browseable = yes                                # visible en la red
+#       read only = no                                  # permite escribir
+#       guest ok = no                                   # exige usuario/clave
+#       valid users = ubucrys                           # usuario autorizado
+
+# 5. Validar la sintaxis de smb.conf.
+testparm
+
+# 6. Crear el usuario SMB (pide una contrasena de Samba).
+sudo smbpasswd -a ubucrys
+
+# 7. Reiniciar el servicio y comprobar que esta activo.
+sudo systemctl restart smbd
+systemctl status smbd
+
+# 8. Permitir Samba en el firewall (si esta activo).
+sudo ufw allow samba
+
+# 9. Ver la IP del servidor y confirmar que escucha el puerto 445.
+ip -4 addr show
+ss -tln | grep 445
+
+
+------------------------------------------------------------------
+PARTE 3. ACCESO DESDE EL CLIENTE (WINDOWS)
+------------------------------------------------------------------
+
+# Opcion A: GRAFICA
+#   Explorador de archivos -> barra de direcciones:
+#       \\192.168.1.2\compartida
+#   Windows pide usuario (ubucrys) y la contrasena SMB.
+
+# Opcion B: TERMINAL (CMD o PowerShell)
+
+# 1. Comprobar que el puerto SMB del servidor responde (PowerShell).
+Test-NetConnection -ComputerName 192.168.1.2 -Port 445
+
+# 2. Ver los recursos compartidos del servidor.
+net view \\192.168.1.2
+
+# 3. Conectar la carpeta como unidad Z: (pide la contrasena SMB).
+net use Z: \\192.168.1.2\compartida /user:ubucrys
+
+# 4. Listar el contenido de la unidad.
+dir Z:\
+
+# 5. Crear un archivo de prueba desde Windows.
+echo Hola desde Windows > Z:\prueba_windows.txt
+
+# 6. Desconectar la unidad al terminar.
+net use Z: /delete
+
+# En UBUNTU, confirmar que llego el archivo:
+ls -la ~/Escritorio/CompartidaWin
+
+
+------------------------------------------------------------------
+PARTE 4. SCRIPT BASH DEL SERVIDOR (configurar_servidor.sh)
+------------------------------------------------------------------
+#!/usr/bin/env bash
+# ------------------------------------------------------------------
+# configurar_servidor.sh
+# Configura Samba en Ubuntu para compartir una carpeta con clientes Windows.
+#
+# Uso:     bash configurar_servidor.sh [usuario] [nombre_recurso]
+# Ejemplo: bash configurar_servidor.sh ubucrys compartida
+# ------------------------------------------------------------------
+set -euo pipefail
+
+# --- Parámetros (con valores por defecto) --------------------------
+USUARIO="${1:-$USER}"                 # Usuario con acceso SMB
+RECURSO="${2:-compartida}"            # Nombre del recurso en la red
+ESCRITORIO="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+CARPETA="$ESCRITORIO/CompartidaWin"   # Carpeta que se va a compartir
+CONF="/etc/samba/smb.conf"
+
+# --- Funciones -----------------------------------------------------
+instalar_samba() {
+    echo "[1/5] Instalando Samba..."
+    sudo apt update -qq
+    sudo apt install -y samba
+}
+
+crear_carpeta() {
+    echo "[2/5] Creando la carpeta $CARPETA..."
+    mkdir -p "$CARPETA"
+}
+
+configurar_recurso() {
+    echo "[3/5] Configurando el recurso [$RECURSO] en $CONF..."
+    # Evita duplicar el bloque si el script se ejecuta más de una vez
+    if grep -q "^\[$RECURSO\]" "$CONF"; then
+        echo "      El recurso ya existe; no se modifica."
+        return
+    fi
+    sudo cp "$CONF" "$CONF.bak"       # Copia de seguridad
+    sudo tee -a "$CONF" > /dev/null <<BLOQUE
+
+[$RECURSO]
+   comment = Carpeta compartida de Ubuntu para Windows
+   path = $CARPETA
+   browseable = yes
+   read only = no
+   guest ok = no
+   valid users = $USUARIO
+BLOQUE
+    testparm -s > /dev/null           # Valida la sintaxis de smb.conf
+}
+
+crear_usuario_samba() {
+    echo "[4/5] Definiendo la contraseña SMB de $USUARIO..."
+    sudo smbpasswd -a "$USUARIO"
+}
+
+reiniciar_servicio() {
+    echo "[5/5] Reiniciando el servicio y abriendo el firewall..."
+    sudo systemctl restart smbd
+    sudo ufw allow samba > /dev/null 2>&1 || true   # Si ufw no está activo, continúa
+}
+
+mostrar_resumen() {
+    echo
+    echo "Servicio smbd: $(systemctl is-active smbd)"
+    echo "Dirección IP del servidor:"
+    hostname -I | awk '{print "  " $1}'
+    printf 'Desde Windows abre:  \\\\<IP>\\%s\n' "$RECURSO"
+}
+
+# --- Ejecución -----------------------------------------------------
+instalar_samba
+crear_carpeta
+configurar_recurso
+crear_usuario_samba
+reiniciar_servicio
+mostrar_resumen
+
+
+------------------------------------------------------------------
+PARTE 5. SCRIPT BASH DE PRUEBA (probar_conectividad.sh)
+------------------------------------------------------------------
+#!/usr/bin/env bash
+# ------------------------------------------------------------------
+# probar_conectividad.sh
+# Desde Ubuntu: prueba el ping a Windows y el puerto SMB del servidor.
+#
+# Uso:     bash probar_conectividad.sh <ip_destino>
+# Ejemplo: bash probar_conectividad.sh 192.168.1.7
+# Nota: el firewall de Windows puede bloquear el ping aunque SMB funcione.
+# ------------------------------------------------------------------
+set -uo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "Uso: $0 <ip_destino>" >&2
+    exit 1
+fi
+
+DESTINO="$1"
+
+if ping -c 4 "$DESTINO"; then
+    echo "Resultado: hay respuesta ICMP de $DESTINO."
+else
+    echo "Sin respuesta de $DESTINO (puede ser el firewall de Windows)." >&2
+fi
+
+echo "Puertos SMB en escucha en este equipo (servidor):"
+ss -tln | grep -E ":445|:139" || echo "  No se detecta Samba escuchando."
+
+
+------------------------------------------------------------------
+CONCLUSION
+------------------------------------------------------------------
+- Ubuntu comparte la carpeta con Samba (SMB) y Windows la usa como si
+  fuera un recurso nativo, porque ambos sistemas hablan el mismo protocolo.
+- La contrasena SMB es independiente de la cuenta de Linux.
+- Si el ping falla hacia Windows, se comprueba el puerto 445.
+==================================================================
