@@ -77,30 +77,28 @@ También se puede compartir desde la interfaz gráfica: clic derecho sobre la ca
 
 **Cliente → servidor** (`ping -c 4 192.168.1.2`): 4 paquetes enviados, 4 recibidos, 0 % de pérdida, tiempo promedio de 0.847 ms.
 
-![Ping del cliente al servidor](Terminal/ping_cliente_a_servidor.png)
-![Ping del cliente al servidor, detalle](Terminal/ping_cliente_a_servidor_detalle.png)
+
 
 **Servidor → cliente** (`ping -c 4 192.168.1.7`): 4 paquetes enviados, 4 recibidos, 0 % de pérdida, tiempo promedio de 0.842 ms.
 
-![Ping del servidor al cliente](Terminal/ping_servidor_a_cliente.png)
+
 
 ### 5.2 Carpeta compartida (Reporte)
 
 **El cliente ve las comparticiones del servidor.** En "Comparticiones Windows en 192.168.1.2" aparecen `IsrAMBA` y `print$`.
 
-![Cliente ve las comparticiones](Reporte/01_cliente_ve_comparticiones_del_servidor.png)
 
 **El servidor tiene la carpeta `IsrAMBA` en el Escritorio**, marcada como compartida.
 
-![Servidor con IsrAMBA compartida](Reporte/02_servidor_carpeta_IsrAMBA_compartida.png)
+
 
 **Contenido de `IsrAMBA` en el servidor:** contiene la subcarpeta `1`.
 
-![Contenido de IsrAMBA en el servidor](Reporte/03_servidor_contenido_de_IsrAMBA.png)
+
 
 **Contenido visto desde el cliente** en `isramba en 192.168.1.2`: aparece la misma subcarpeta `1`, con fecha de modificación "Ayer, 9:09", igual que en el servidor.
 
-![Cliente accede a isramba](Reporte/04_cliente_accede_a_isramba_en_192.168.1.2.png)
+
 
 ## 6. Resultados
 
