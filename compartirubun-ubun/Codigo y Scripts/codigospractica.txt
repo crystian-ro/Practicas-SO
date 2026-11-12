@@ -1,0 +1,242 @@
+==================================================================
+PRÁCTICA: COMPARTIR ARCHIVOS ENTRE UBUNTU Y UBUNTU (SAMBA)
+==================================================================
+Servidor : ubucrys@ublpc            IP 192.168.1.2
+Cliente  : israel@israel-BOM-WXX9   IP 192.168.1.7
+Carpeta compartida: IsrAMBA (recurso: isramba)
+==================================================================
+
+
+------------------------------------------------------------------
+PARTE 1. PRUEBA DE CONECTIVIDAD (se hizo en los dos equipos)
+------------------------------------------------------------------
+
+# En el CLIENTE: envía 4 paquetes al servidor.
+# -c 4 = cantidad de paquetes a enviar
+ping -c 4 192.168.1.2
+
+# En el SERVIDOR: envía 4 paquetes al cliente.
+ping -c 4 192.168.1.7
+
+# Resultado obtenido en ambos equipos:
+#   4 packets transmitted, 4 received, 0% packet loss
+#   -> hay comunicación entre los dos equipos.
+
+
+------------------------------------------------------------------
+PARTE 2. CONFIGURACIÓN DEL SERVIDOR (ubucrys@ublpc)
+------------------------------------------------------------------
+
+# 1. Actualizar la lista de paquetes e instalar Samba.
+#    Samba implementa el protocolo SMB para compartir carpetas.
+sudo apt update
+sudo apt install -y samba
+
+# 2. Crear la carpeta que se va a compartir (en el Escritorio).
+mkdir -p ~/Escritorio/IsrAMBA
+
+# 3. Crear una subcarpeta de prueba dentro de la carpeta compartida.
+mkdir ~/Escritorio/IsrAMBA/1
+
+# 4. Hacer una copia de seguridad de la configuración original.
+sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.bak
+
+# 5. Editar la configuración de Samba.
+sudo nano /etc/samba/smb.conf
+
+#    Agregar este bloque al FINAL del archivo:
+#
+#    [isramba]                                   # nombre del recurso en la red
+#       comment = Carpeta compartida Ubuntu      # descripción
+#       path = /home/ubucrys/Escritorio/IsrAMBA  # carpeta que se comparte
+#       browseable = yes                         # visible en la red
+#       read only = no                           # permite escribir
+#       guest ok = no                            # exige usuario y contraseña
+#       valid users = ubucrys                    # usuario autorizado
+
+# 6. Validar que la sintaxis de smb.conf es correcta.
+testparm
+
+# 7. Crear el usuario SMB (pide una contraseña para Samba).
+sudo smbpasswd -a ubucrys
+
+# 8. Reiniciar el servicio para aplicar los cambios.
+sudo systemctl restart smbd
+
+# 9. Comprobar que el servicio está activo.
+systemctl status smbd
+
+# 10. Permitir Samba en el firewall (si está activo).
+sudo ufw allow samba
+
+# 11. Ver la IP del servidor.
+ip -4 addr show
+
+
+------------------------------------------------------------------
+PARTE 3. ACCESO DESDE EL CLIENTE (israel@israel-BOM-WXX9)
+------------------------------------------------------------------
+
+# Opción A: DESDE LA INTERFAZ GRÁFICA (la que se ve en las capturas)
+#   Archivos -> Otras ubicaciones -> escribir en "Conectarse al servidor":
+#       smb://192.168.1.2
+#   Aparecen los recursos compartidos: IsrAMBA y print$.
+#   Se entra a "isramba en 192.168.1.2" y se ve la carpeta "1".
+
+# Opción B: DESDE LA TERMINAL
+
+# 1. Instalar las herramientas cliente de SMB.
+sudo apt install -y smbclient cifs-utils
+
+# 2. Listar los recursos compartidos del servidor.
+smbclient -L //192.168.1.2 -U ubucrys
+
+# 3. Crear el punto de montaje.
+sudo mkdir -p /mnt/isramba
+
+# 4. Montar la carpeta compartida.
+sudo mount -t cifs //192.168.1.2/isramba /mnt/isramba -o username=ubucrys
+
+# 5. Ver el contenido de la carpeta compartida.
+ls -la /mnt/isramba
+
+# 6. Crear un archivo de prueba desde el cliente.
+echo "Hola desde el cliente" > /mnt/isramba/prueba.txt
+
+# 7. Desmontar la carpeta al terminar.
+sudo umount /mnt/isramba
+
+
+------------------------------------------------------------------
+PARTE 4. SCRIPT BASH DEL SERVIDOR (configurar_servidor.sh)
+------------------------------------------------------------------
+#!/usr/bin/env bash
+# Configura un servidor Samba y comparte una carpeta.
+# Uso: bash configurar_servidor.sh [usuario] [nombre_recurso]
+set -euo pipefail          # Detiene el script ante cualquier error
+
+# --- Parámetros ---
+USUARIO="${1:-$USER}"      # Usuario con acceso SMB
+RECURSO="${2:-isramba}"    # Nombre del recurso en la red
+ESCRITORIO="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+CARPETA="$ESCRITORIO/IsrAMBA"
+CONF="/etc/samba/smb.conf"
+
+# --- Funciones ---
+instalar_samba() {
+    echo "[1/5] Instalando Samba..."
+    sudo apt update -qq
+    sudo apt install -y samba
+}
+
+crear_carpeta() {
+    echo "[2/5] Creando la carpeta $CARPETA..."
+    mkdir -p "$CARPETA"
+}
+
+configurar_recurso() {
+    echo "[3/5] Configurando el recurso [$RECURSO]..."
+    # Evita duplicar el bloque si el script se ejecuta dos veces
+    if grep -q "^\[$RECURSO\]" "$CONF"; then
+        echo "      El recurso ya existe."
+        return
+    fi
+    sudo cp "$CONF" "$CONF.bak"          # Copia de seguridad
+    sudo tee -a "$CONF" > /dev/null <<BLOQUE
+
+[$RECURSO]
+   comment = Carpeta compartida entre Ubuntu
+   path = $CARPETA
+   browseable = yes
+   read only = no
+   guest ok = no
+   valid users = $USUARIO
+BLOQUE
+    testparm -s > /dev/null              # Valida la sintaxis
+}
+
+crear_usuario_samba() {
+    echo "[4/5] Contraseña SMB de $USUARIO..."
+    sudo smbpasswd -a "$USUARIO"
+}
+
+reiniciar_servicio() {
+    echo "[5/5] Reiniciando servicio y firewall..."
+    sudo systemctl restart smbd
+    sudo ufw allow samba > /dev/null 2>&1 || true
+}
+
+# --- Ejecución ---
+instalar_samba
+crear_carpeta
+configurar_recurso
+crear_usuario_samba
+reiniciar_servicio
+echo "IP del servidor: $(hostname -I | awk '{print $1}')"
+
+
+------------------------------------------------------------------
+PARTE 5. SCRIPT BASH DEL CLIENTE (conectar_cliente.sh)
+------------------------------------------------------------------
+#!/usr/bin/env bash
+# Se conecta a una carpeta compartida por Samba.
+# Uso: bash conectar_cliente.sh <ip_servidor> <usuario> [recurso]
+set -euo pipefail
+
+# --- Validación de argumentos ---
+if [[ $# -lt 2 ]]; then
+    echo "Uso: $0 <ip_servidor> <usuario> [recurso]" >&2
+    exit 1
+fi
+
+IP="$1"
+USUARIO="$2"
+RECURSO="${3:-isramba}"
+PUNTO_MONTAJE="/mnt/$RECURSO"
+
+# --- Funciones ---
+verificar_red() {
+    echo "[1/4] Probando conectividad con $IP..."
+    if ! ping -c 4 "$IP"; then
+        echo "Error: no hay conexión con $IP." >&2
+        exit 2
+    fi
+}
+
+instalar_herramientas() {
+    echo "[2/4] Instalando herramientas SMB..."
+    sudo apt install -y smbclient cifs-utils
+}
+
+listar_recursos() {
+    echo "[3/4] Recursos compartidos en $IP:"
+    smbclient -L "//$IP" -U "$USUARIO"
+}
+
+montar_recurso() {
+    echo "[4/4] Montando en $PUNTO_MONTAJE..."
+    sudo mkdir -p "$PUNTO_MONTAJE"
+    if mountpoint -q "$PUNTO_MONTAJE"; then
+        echo "      Ya estaba montado."
+    else
+        sudo mount -t cifs "//$IP/$RECURSO" "$PUNTO_MONTAJE" \
+            -o "username=$USUARIO,uid=$(id -u),gid=$(id -g)"
+    fi
+    ls -la "$PUNTO_MONTAJE"
+}
+
+# --- Ejecución ---
+verificar_red
+instalar_herramientas
+listar_recursos
+montar_recurso
+
+
+------------------------------------------------------------------
+CONCLUSIÓN
+------------------------------------------------------------------
+- Ambos equipos se comunican sin pérdida de paquetes (0 % de pérdida).
+- El servidor comparte la carpeta IsrAMBA mediante Samba (protocolo SMB).
+- El cliente accede a la carpeta compartida desde el explorador de
+  archivos y ve su contenido (carpeta "1").
+==================================================================
