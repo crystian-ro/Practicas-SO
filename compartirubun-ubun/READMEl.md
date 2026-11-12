@@ -1,8 +1,5 @@
-# Compartir archivos entre Ubuntu y Ubuntu (Samba)
+# Compartir archivos entre Ubuntu y Ubuntu 
 
-**Estudiante:** [Tu nombre]
-**Materia / Docente:** [Materia] / [Docente]
-**Fecha de la práctica:** 11 de noviembre
 
 ## 1. Objetivos
 
